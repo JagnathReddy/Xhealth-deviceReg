@@ -1,7 +1,7 @@
-import mongoose, { Mongoose } from "mongoose";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
-const doctorSchema = mongoose.Schema({
+export const doctorSchema = mongoose.Schema({
     firstName: {
         type: String,
         required: true,
@@ -83,6 +83,16 @@ const doctorSchema = mongoose.Schema({
     },
     timeSlotsBooked:{
         type:[String],
+    },
+    avgRating:{
+        type:Number,
+        required: true,
+        default:1,
+        enum:[1,2,3,4,5]
+    },
+    gradCollegeName:{
+        type: [String],
+        required: true
     }
 
 }, {
@@ -103,6 +113,8 @@ doctorSchema.pre('save', async function (next) {
 doctorSchema.methods.matchPasswords = async function (enterePassword) {
     return await bcrypt.compare(enterePassword, this.password);
 }
+
+
 
 const Doctor = mongoose.model('Doctor', doctorSchema);
 export default Doctor;

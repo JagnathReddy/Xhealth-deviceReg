@@ -1,12 +1,13 @@
 import asyncHandler from "express-async-handler";
 import Doctor from '../models/doctorModel.js'
 import generateToken from '../utils/generateToken.js'
-// import { logoutUser } from "./userController.js";
-import cron from 'node-cron';
-
-// @desc Auth doctor/set token
-// route = POST to /api/users/doctor
-// Access = Public
+import Hospital from "../models/hospitalModel.js";
+import { doctorsList, hopitalList } from "../data/doctors.js";
+/**
+ * @desc : Auth doctor/set token
+ * @access : Public
+ * @route : POST to /api/doctors/auth
+ */
 
 const authDoctor = asyncHandler(async (req, res) => {
     const {email, password} = req.body;
@@ -17,7 +18,7 @@ const authDoctor = asyncHandler(async (req, res) => {
         generateToken(res, doc._id,'doctor');
         res.status(201).json({
             _id:doc._id,
-            name: doc.name,
+            firstName: doc.firstName,
             email:doc.email,
         });
     } else{
@@ -25,20 +26,23 @@ const authDoctor = asyncHandler(async (req, res) => {
         throw new Error('Invalid email or password')
     }
 });
-
-// @desc Register a new doc
-// route = POST to /api/doctor
-// Access = Public
+/**
+ * @desc : Register a new doc
+ * @access : Public
+ * @route : POST to /api/doctors
+ */
 
 const registerDoctor = asyncHandler(async (req, res) => {
-    const {email,password,firstName, lastName, phoneNumber, dateOfBirth, gender, state, bloodGroup, city, pincode,department,qualification,experience,registrationNumber,currentHospitalWorkingName,workingHourStart,workingHourEnd } = req.body;
+    const {email,password,firstName, lastName, phoneNumber, dateOfBirth, gender, state, bloodGroup, city, pincode,department,qualification,experience,registrationNumber,currentHospitalWorkingName,workingHourStart,workingHourEnd,gradCollegeName } = req.body;
     const doctorExists = await Doctor.findOne({email});
+    const hospital = await Hospital.findOne({name:currentHospitalWorkingName});
+
+    console.log(hospital)
     
     if (phoneNumber.length !==10){
         res.status(400);
         throw new Error("Phone number should be only 10 digits. Do no include country code!")
     }
-
     if(doctorExists){
         res.status(400);
         throw new Error('doctor already exists!');
@@ -56,26 +60,32 @@ const registerDoctor = asyncHandler(async (req, res) => {
         state, 
         bloodGroup, 
         city, 
-        pincode,department,qualification,experience,registrationNumber,currentHospitalWorkingName,workingHourStart,workingHourEnd,
+        pincode,department,qualification,experience,registrationNumber,currentHospitalWorkingName,workingHourStart,workingHourEnd, gradCollegeName
     });
     if(doc){
+        if (hospital) {
+            hospital.doctorsList.push(doc);
+            await hospital.save()
+        }
         generateToken(res, doc._id,'doctor');
         res.status(201).json({
             _id:doc._id,
-            name: doc.name,
+            firstName: doc.firstName,
             email:doc.email,
-
         });
     } else{
         res.status(400);
         throw new Error('Invalid doc data!')
     }
+    
+    
 });
 
-// @desc Logout
-// route = POST to /api/doctors/logout
-// Access = Private
-
+/**
+ * @desc : Logout
+ * @access : PRIVATE
+ * @route : POST to /api/doctors/logout
+ */
 
 const logoutDoctor = asyncHandler(async (req, res) => {
         res.cookie('jwt-doctor','',{
@@ -85,10 +95,11 @@ const logoutDoctor = asyncHandler(async (req, res) => {
     res.status(200).json({message:"Doctor logged out"})
 });
 
-// @desc get doctor profile
-// route = GET to /api/doctors/profile
-// Access = Private
-
+/**
+ * @desc : get doctor profile
+ * @access : PRIVATE
+ * @route : GET to /api/doctors/profile
+ */
 
 const getDoctorProfile = asyncHandler(async (req, res) => {
 
@@ -119,10 +130,12 @@ const getDoctorProfile = asyncHandler(async (req, res) => {
 
 });
 
+/**
+ * @desc : Update Doctor Profile
+ * @access : PRIVATE
+ * @route : PUT to /api/doctors/profile
+ */
 
-// @desc Update Doctor Profile
-// route = PUT to /api/profile
-// Access = Private
 
 const updateDoctorProfile = asyncHandler(async (req, res) => {
     console.log('doctor Profile update')
@@ -161,25 +174,58 @@ const updateDoctorProfile = asyncHandler(async (req, res) => {
         throw new Error('Doctor not found')
     }
 
-    res.status(200).json({message:"update user profile"})
 });
 
-export {authDoctor, registerDoctor, logoutDoctor, getDoctorProfile, updateDoctorProfile};
+/**
+ * @desc : list all doctors
+ * @access : PRIVATE
+ * @route : GET 'api/doctors/all'
+ */
+
+const allDoctor = asyncHandler(async (req,res) => {
+    const allDoc =await Doctor.find({}).select("-password");
+    res.status(200).json({
+        allDoc
+    });
+});
+
+
+
+export {authDoctor, registerDoctor, logoutDoctor, getDoctorProfile, updateDoctorProfile,allDoctor};
 
 // Remove all elements in timeSlotsBooked array for all doctors
+// cron.schedule('0 0 * * *', clearDocArray);
 
-const clearArray = async () =>{
-    const allDoc = await Doctor.find()
-    // console.log(allDoc)
-    for(let i in allDoc){
-        console.log(allDoc[i].timeSlotsBooked)
-        allDoc[i].timeSlotsBooked=[]
-        console.log(allDoc[i].timeSlotsBooked)
-        await allDoc[i].save()
-    }
-    
-    console.log('outside for loop')
-}
-cron.schedule('0 0 * * *', clearArray);
 
-// clearArray()
+// clearDocArray()
+
+
+// doctorsList.forEach(async element => {
+//     const hos = await Hospital.findOne({name : element.currentHospitalWorkingName})
+
+//     const doc = Doctor.create({
+//         email: element.email,
+//         password: element.password,
+//         firstName: element.firstName,
+//         lastName: element.lastName,
+//         phoneNumber:element.phoneNumber,
+//         dateOfBirth:element.dateOfBirth, 
+//         gender:element.gender, 
+//         state:element.state, 
+//         bloodGroup:element.bloodGroup, 
+//         city:element.city, 
+//         pincode:element.pincode,
+//         department:element.department,
+//         qualification:element.qualification,
+//         experience:element.experience,
+//         registrationNumber:element.registrationNumber,
+//         currentHospitalWorkingName:element.currentHospitalWorkingName,
+//         workingHourStart:element.workingHourStart,
+//         workingHourEnd:element.workingHourEnd,
+//         gradCollegeName:element.gradCollegeName
+//     });
+//     if(hos){
+//         hos.doctorsList.push(doc)
+//     }
+// });
+
